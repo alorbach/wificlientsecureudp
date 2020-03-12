@@ -13,26 +13,32 @@
 #include "mbedtls/error.h"
 #include "mbedtls/timing.h"
 
+/*
 #undef log_v(format, ...) 
 #undef log_d(format, ...) 
 #undef log_i(format, ...) 
+*/
 #undef log_w(format, ...) 
 #undef log_e(format, ...) 
+/*
 #define log_v(format, ...) Serial.printf("ssl_client_udp verbose: " format "\n", ##__VA_ARGS__);
 #define log_d(format, ...) Serial.printf("ssl_client_udp debug: " format "\n", ##__VA_ARGS__);
 #define log_i(format, ...) Serial.printf("ssl_client_udp info: " format "\n", ##__VA_ARGS__);
+*/
 #define log_w(format, ...) Serial.printf("ssl_client_udp warning: " format "\n", ##__VA_ARGS__);
 #define log_e(format, ...) Serial.printf("ssl_client_udp error: " format "\n", ##__VA_ARGS__);
+// Uncomment for Ultraverbose debugging 
+#define log_d_mbedtls(format, ...) // Serial.printf("ssl_client_udp debug: " format, ##__VA_ARGS__);
 
 typedef struct sslclientudp_context {
     int socket;
-	mbedtls_net_context socket_ctx;
+mbedtls_net_context socket_ctx;
     mbedtls_ssl_context ssl_ctx;
     mbedtls_ssl_config ssl_conf;
 
     mbedtls_ctr_drbg_context drbg_ctx;
     mbedtls_entropy_context entropy_ctx;
-	// mbedtls_timing_delay_context timer;
+	mbedtls_timing_delay_context timer;
 
     mbedtls_x509_crt ca_cert;
     mbedtls_x509_crt client_cert;

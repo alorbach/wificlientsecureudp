@@ -333,4 +333,5 @@ int WiFiClientSecureUdp::lastError(char *buf, const size_t size)
 void WiFiClientSecureUdp::setHandshakeTimeout(unsigned long handshake_timeout)
 {
     sslclient->handshake_timeout = handshake_timeout * 1000;
+	log_v("setHandshakeTimeout: %d", sslclient->handshake_timeout);
 }
