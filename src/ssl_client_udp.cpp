@@ -108,14 +108,18 @@ int my_mbedtls_timing_get_delay( void *data )
 
 void ssl_init(sslclientudp_context *ssl_client)
 {	
-// Debug Support
+#if defined(CONFIG_MBEDTLS_DEBUG)
+	// Enable Debug Support
 	mbedtls_debug_set_threshold( 0 /* 0=less, 4=Verbose */ );
+#endif
+
+	/* Create Mutex for send/receive*/
+	ssl_client->mbedtls_mutex = xSemaphoreCreateMutex();
 
 //    mbedtls_net_init(&ssl_client->socket_ctx);
     mbedtls_ssl_init(&ssl_client->ssl_ctx);
     mbedtls_ssl_config_init(&ssl_client->ssl_conf);
     mbedtls_ctr_drbg_init(&ssl_client->drbg_ctx);
-
 }
 
 
@@ -126,7 +130,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     int ret, flags;
     int enable = 1;
 	snprintf_P(szPort, 16, PSTR("%d"), port);
-    log_v("Free internal heap before TLS %u", ESP.getFreeHeap());
+    log_d("Free internal heap before TLS %u", ESP.getFreeHeap());
 
 	/* Socket Code */
     ssl_client->socket = -1;
@@ -142,7 +146,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     }
 	/**/
 	
-    log_v("Seeding the random number generator");
+    log_d("Seeding the random number generator");
     mbedtls_entropy_init(&ssl_client->entropy_ctx);
     ret = mbedtls_ctr_drbg_seed(&ssl_client->drbg_ctx, mbedtls_entropy_func,
                                 &ssl_client->entropy_ctx, (const unsigned char *) persudp, strlen(persudp));
@@ -150,11 +154,8 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         return handle_error(ret);
     }
 
-    // MBEDTLS_SSL_VERIFY_REQUIRED if a CA certificate is defined on Arduino IDE and
-    // MBEDTLS_SSL_VERIFY_NONE if not.
-
     if (rootCABuff != NULL) {
-        log_v("Loading CA cert");
+        log_i("Loading CA cert");
         mbedtls_x509_crt_init(&ssl_client->ca_cert);
         mbedtls_ssl_conf_authmode(&ssl_client->ssl_conf, MBEDTLS_SSL_VERIFY_OPTIONAL /*MBEDTLS_SSL_VERIFY_REQUIRED*/);
         ret = mbedtls_x509_crt_parse(&ssl_client->ca_cert, (const unsigned char *)rootCABuff, strlen(rootCABuff) + 1);
@@ -164,8 +165,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
             return handle_error(ret);
         }
     } else if (pskIdent != NULL && psKey != NULL) {
-        log_v("Setting up PSK");
-//		mbedtls_ssl_conf_authmode(&ssl_client->ssl_conf, MBEDTLS_SSL_VERIFY_NONE);
+        log_i("Setting up PSK");
         // convert PSK from hex to binary
         if ((strlen(psKey) & 1) != 0 || strlen(psKey) > 2*MBEDTLS_PSK_MAX_LEN) {
             log_e("pre-shared key not valid hex or too long");
@@ -194,27 +194,24 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
             log_e("mbedtls_ssl_conf_psk returned %d", ret);
             return handle_error(ret);
         } 
-		log_v("mbedtls_ssl_conf_psk set to Ident:'%s', Key:'%s'", pskIdent, psKey);
+		log_i("mbedtls_ssl_conf_psk set to Ident:'%s', Key:'%s'", pskIdent, psKey);
     } else {
         mbedtls_ssl_conf_authmode(&ssl_client->ssl_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
         log_i("WARNING: Use certificates for a more secure communication!");
     }
 	
-//	mbedtls_ssl_ciphersuite_t *ciphersuite_info;
-//	ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( opt.force_ciphersuite[0] );
-
     if (cli_cert != NULL && cli_key != NULL) {
         mbedtls_x509_crt_init(&ssl_client->client_cert);
         mbedtls_pk_init(&ssl_client->client_key);
 
-        log_v("Loading CRT cert");
+        log_i("Loading CRT cert");
 
         ret = mbedtls_x509_crt_parse(&ssl_client->client_cert, (const unsigned char *)cli_cert, strlen(cli_cert) + 1);
         if (ret < 0) {
             return handle_error(ret);
         }
 
-        log_v("Loading private key");
+        log_i("Loading private key");
         ret = mbedtls_pk_parse_key(&ssl_client->client_key, (const unsigned char *)cli_key, strlen(cli_key) + 1, NULL, 0);
 
         if (ret != 0) {
@@ -224,7 +221,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         mbedtls_ssl_conf_own_cert(&ssl_client->ssl_conf, &ssl_client->client_cert, &ssl_client->client_key);
     }
 	
-    log_v("Setting up the SSL/TLS structure...");
+    log_i("Setting up the SSL/TLS structure...");
     if ((ret = mbedtls_ssl_config_defaults(&ssl_client->ssl_conf,
                                            MBEDTLS_SSL_IS_CLIENT,
                                            MBEDTLS_SSL_TRANSPORT_DATAGRAM,
@@ -233,7 +230,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     }
 	
 	/**/
-	log_v("Starting socket");
+	log_i("Starting socket");
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -252,7 +249,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         return -1;
     }
     fcntl( ssl_client->socket, F_SETFL, fcntl( ssl_client->socket, F_GETFL, 0 ) | O_NONBLOCK );
-	log_v("lwip_connect to %s:%s returned success", host, szPort);
+	log_i("lwip_connect to %s:%s returned success", host, szPort);
 	
 	/*
 	if( ( ret = mbedtls_net_connect( &ssl_client->socket_ctx, host,
@@ -261,37 +258,39 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         log_e("ERROR connect mbedtls_net_connect returned %d", ret);
         return ret;
 	} else
-		log_v("mbedtls_net_connect to %s:%s returned success", host, szPort);
+		log_i("mbedtls_net_connect to %s:%s returned success", host, szPort);
 	/**/
 
 	
-	log_v("Init other mbedtls stuff");
+	log_d("Init other mbedtls stuff");
     mbedtls_ssl_conf_rng(&ssl_client->ssl_conf, mbedtls_ctr_drbg_random, &ssl_client->drbg_ctx);
     mbedtls_ssl_conf_dbg(&ssl_client->ssl_conf, _handle_debug, stdout);	
 	mbedtls_ssl_conf_dtls_anti_replay(&ssl_client->ssl_conf, (char) MBEDTLS_SSL_ANTI_REPLAY_ENABLED);
+	mbedtls_ssl_conf_renegotiation(&ssl_client->ssl_conf, MBEDTLS_SSL_RENEGOTIATION_ENABLED  );
 	
-	ssl_client->handshake_timeout = 30000;
+	// ssl_client->handshake_timeout = 20000;
 	mbedtls_ssl_conf_handshake_timeout( &ssl_client->ssl_conf, 1000, ssl_client->handshake_timeout );
     if ((ret = mbedtls_ssl_setup(&ssl_client->ssl_ctx, &ssl_client->ssl_conf)) != 0) {
         return handle_error(ret);
     }
 
     // Hostname set here should match CN in server certificate
-    log_v("Setting hostname for TLS session...");
+    log_d("Setting hostname for TLS session...");
     if((ret = mbedtls_ssl_set_hostname(&ssl_client->ssl_ctx, host)) != 0){
         return handle_error(ret);
 	}
 
-    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket, mbedtls_net_send, mbedtls_net_recv, NULL );
+//    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket, mbedtls_net_send, mbedtls_net_recv, NULL );
+    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout );
 //    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket_ctx, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout );
 	mbedtls_ssl_set_timer_cb( &ssl_client->ssl_ctx, &ssl_client->timer, my_mbedtls_timing_set_delay, my_mbedtls_timing_get_delay );
 
-    log_v("Performing the SSL/TLS handshake (timeout %d)...", ssl_client->handshake_timeout);
+    log_i("Performing the SSL/TLS handshake (timeout %d)...", ssl_client->handshake_timeout);
     unsigned long handshake_start_time=millis();
 	do {
 		ret = mbedtls_ssl_handshake(&ssl_client->ssl_ctx); 
-		// log_v("Performing the SSL/TLS handshake %d ...", millis()-handshake_start_time);
-        if((millis()-handshake_start_time) > 30000 /*ssl_client->handshake_timeout*/) {
+		// log_i("Performing the SSL/TLS handshake %d ...", millis()-handshake_start_time);
+        if((millis()-handshake_start_time) > ssl_client->handshake_timeout /*ssl_client->handshake_timeout*/) {
             log_e("SSL/TLS handshake timeout (%d/%d) ", ssl_client->handshake_timeout, ret);
 			handle_error(ret); 
 			return -1;
@@ -314,7 +313,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         }
     }
 
-    log_v("Verifying peer X.509 certificate...");
+    log_d("Verifying peer X.509 certificate...");
     if ((flags = mbedtls_ssl_get_verify_result(&ssl_client->ssl_ctx)) != 0) {
         bzero(buf, sizeof(buf));
         mbedtls_x509_crt_verify_info(buf, sizeof(buf), "  ! ", flags);
@@ -322,7 +321,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         stop_ssl_socket(ssl_client, rootCABuff, cli_cert, cli_key);  //It's not safe continue.
         return handle_error(ret);
     } else {
-        log_v("Certificate verified.");
+        log_d("Certificate verified.");
     }
     
     if (rootCABuff != NULL) {
@@ -335,7 +334,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         mbedtls_pk_free(&ssl_client->client_key);
     }    
 
-    log_v("Free internal heap after TLS %u", ESP.getFreeHeap());
+    log_d("Free internal heap after TLS %u", ESP.getFreeHeap());
 
 //    return 0; // Means success
     return ssl_client->socket;
@@ -350,10 +349,6 @@ void stop_ssl_socket(sslclientudp_context *ssl_client, const char *rootCABuff, c
         close(ssl_client->socket);
         ssl_client->socket = -1;
     }
-/*
-	mbedtls_net_free( &ssl_client->socket_ctx );
-/**/	
-
     mbedtls_ssl_free(&ssl_client->ssl_ctx);
     mbedtls_ssl_config_free(&ssl_client->ssl_conf);
     mbedtls_ctr_drbg_free(&ssl_client->drbg_ctx);
@@ -363,16 +358,30 @@ void stop_ssl_socket(sslclientudp_context *ssl_client, const char *rootCABuff, c
 
 int data_to_read(sslclientudp_context *ssl_client)
 {
+	/*
     int ret, res;
     ret = mbedtls_ssl_read(&ssl_client->ssl_ctx, NULL, 0);
     //log_e("RET: %i",ret);   //for low level debug
     res = mbedtls_ssl_get_bytes_avail(&ssl_client->ssl_ctx);
     //log_e("RES: %i",res);    //for low level debug
     if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret < 0) {
+		log_e("mbedtls_ssl_read error %d with %d bytes remaining", ret, res);  //for low level debug
         return handle_error(ret);
     }
-
-    return res;
+	*/
+    int ret, res;
+    res = mbedtls_ssl_get_bytes_avail(&ssl_client->ssl_ctx);
+	
+	if (res > 0) {
+		ret = mbedtls_ssl_read(&ssl_client->ssl_ctx, NULL, 0);
+		if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret < 0) {
+			log_e("data_to_read mbedtls_ssl_read error %d with %d bytes remaining", ret, res);  //for low level debug
+			return handle_error(ret);
+		}
+	} else {
+//		log_v("data_to_read mbedtls_ssl_get_bytes_avail: %i",res);    //for low level debug
+		return res;
+	}
 }
 
 
@@ -381,15 +390,41 @@ int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_
     log_v("Writing %d bytes of data to DTLS Stream...", len);  //for low level debug
     int ret = -1;
 
-    while ((ret = mbedtls_ssl_write(&ssl_client->ssl_ctx, data, len)) <= 0) {
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            return handle_error(ret);
-        }
-    }
+	// Release MUTEX to be save first
+	xSemaphoreGive(ssl_client->mbedtls_mutex);
+	
+	// Lock MUTEX 
+	if( xSemaphoreTake( ssl_client->mbedtls_mutex, ( TickType_t ) 1 ) ) {
+		// Send data while available
+		do {
+			ret = mbedtls_ssl_write( &ssl_client->ssl_ctx, data, len );
+		} while( ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE );
 
-    len = ret;
-    log_v("%d bytes written to DTLS Stream", len);  //for low level debug
-    return ret;
+		// Release MUTEX 
+		xSemaphoreGive( ssl_client->mbedtls_mutex );
+
+		// Check for return code
+		if( ret < 0 ) {
+			log_e("Writing %d bytes of data to DTLS Stream FAILED with ret %d", len, ret);  //for low level debug
+			return handle_error(ret);
+		}
+		/*
+		while ((ret = mbedtls_ssl_write(&ssl_client->ssl_ctx, data, len)) <= 0) {
+			if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+				log_e("Writing %d bytes of data to DTLS Stream FAILED", len);  //for low level debug
+				return handle_error(ret);
+			}
+		}
+		*/
+
+		len = ret;
+		log_v("%d bytes written to DTLS Stream", len);  //for low level debug
+		return ret;
+	} else {
+		log_e("xSemaphoreTake Failed to lock mutex, skip");
+		return 0;
+	}
+		
 }
 
 int get_ssl_receive(sslclientudp_context *ssl_client, uint8_t *data, int length)
