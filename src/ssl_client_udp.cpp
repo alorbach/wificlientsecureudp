@@ -115,8 +115,8 @@ void ssl_init(sslclientudp_context *ssl_client)
 
 	/* Create Mutex for send/receive*/
 	ssl_client->mbedtls_mutex = xSemaphoreCreateMutex();
-
-//    mbedtls_net_init(&ssl_client->socket_ctx);
+	
+	// Mbed TLS Init
     mbedtls_ssl_init(&ssl_client->ssl_ctx);
     mbedtls_ssl_config_init(&ssl_client->ssl_conf);
     mbedtls_ctr_drbg_init(&ssl_client->drbg_ctx);
@@ -251,24 +251,11 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     fcntl( ssl_client->socket, F_SETFL, fcntl( ssl_client->socket, F_GETFL, 0 ) | O_NONBLOCK );
 	log_i("lwip_connect to %s:%s returned success", host, szPort);
 	
-	/*
-	if( ( ret = mbedtls_net_connect( &ssl_client->socket_ctx, host,
-									 szPort, MBEDTLS_NET_PROTO_UDP ) ) != 0 )
-	{
-        log_e("ERROR connect mbedtls_net_connect returned %d", ret);
-        return ret;
-	} else
-		log_i("mbedtls_net_connect to %s:%s returned success", host, szPort);
-	/**/
-
-	
 	log_d("Init other mbedtls stuff");
     mbedtls_ssl_conf_rng(&ssl_client->ssl_conf, mbedtls_ctr_drbg_random, &ssl_client->drbg_ctx);
     mbedtls_ssl_conf_dbg(&ssl_client->ssl_conf, _handle_debug, stdout);	
 	mbedtls_ssl_conf_dtls_anti_replay(&ssl_client->ssl_conf, (char) MBEDTLS_SSL_ANTI_REPLAY_ENABLED);
 	mbedtls_ssl_conf_renegotiation(&ssl_client->ssl_conf, MBEDTLS_SSL_RENEGOTIATION_ENABLED  );
-	
-	// ssl_client->handshake_timeout = 20000;
 	mbedtls_ssl_conf_handshake_timeout( &ssl_client->ssl_conf, 1000, ssl_client->handshake_timeout );
     if ((ret = mbedtls_ssl_setup(&ssl_client->ssl_ctx, &ssl_client->ssl_conf)) != 0) {
         return handle_error(ret);
@@ -282,15 +269,14 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
 
 //    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket, mbedtls_net_send, mbedtls_net_recv, NULL );
     mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout );
-//    mbedtls_ssl_set_bio(	&ssl_client->ssl_ctx, &ssl_client->socket_ctx, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout );
 	mbedtls_ssl_set_timer_cb( &ssl_client->ssl_ctx, &ssl_client->timer, my_mbedtls_timing_set_delay, my_mbedtls_timing_get_delay );
 
     log_i("Performing the SSL/TLS handshake (timeout %d)...", ssl_client->handshake_timeout);
-    unsigned long handshake_start_time=millis();
+    unsigned long handshake_start_time = millis();
 	do {
 		ret = mbedtls_ssl_handshake(&ssl_client->ssl_ctx); 
-		// log_i("Performing the SSL/TLS handshake %d ...", millis()-handshake_start_time);
-        if((millis()-handshake_start_time) > ssl_client->handshake_timeout /*ssl_client->handshake_timeout*/) {
+		log_d("Performing the SSL/TLS handshake %d ...", millis() - handshake_start_time);
+        if((millis() - handshake_start_time) > ssl_client->handshake_timeout /*ssl_client->handshake_timeout*/) {
             log_e("SSL/TLS handshake timeout (%d/%d) ", ssl_client->handshake_timeout, ret);
 			handle_error(ret); 
 			return -1;
@@ -358,17 +344,6 @@ void stop_ssl_socket(sslclientudp_context *ssl_client, const char *rootCABuff, c
 
 int data_to_read(sslclientudp_context *ssl_client)
 {
-	/*
-    int ret, res;
-    ret = mbedtls_ssl_read(&ssl_client->ssl_ctx, NULL, 0);
-    //log_e("RET: %i",ret);   //for low level debug
-    res = mbedtls_ssl_get_bytes_avail(&ssl_client->ssl_ctx);
-    //log_e("RES: %i",res);    //for low level debug
-    if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret < 0) {
-		log_e("mbedtls_ssl_read error %d with %d bytes remaining", ret, res);  //for low level debug
-        return handle_error(ret);
-    }
-	*/
     int ret, res;
     res = mbedtls_ssl_get_bytes_avail(&ssl_client->ssl_ctx);
 	
@@ -383,7 +358,6 @@ int data_to_read(sslclientudp_context *ssl_client)
 		return res;
 	}
 }
-
 
 int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_t len)
 {
@@ -405,17 +379,9 @@ int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_
 
 		// Check for return code
 		if( ret < 0 ) {
-			log_e("Writing %d bytes of data to DTLS Stream FAILED with ret %d", len, ret);  //for low level debug
+			log_i("Writing %d bytes of data to DTLS Stream FAILED with ret %d", len, ret);  //for low level debug
 			return handle_error(ret);
 		}
-		/*
-		while ((ret = mbedtls_ssl_write(&ssl_client->ssl_ctx, data, len)) <= 0) {
-			if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-				log_e("Writing %d bytes of data to DTLS Stream FAILED", len);  //for low level debug
-				return handle_error(ret);
-			}
-		}
-		*/
 
 		len = ret;
 		log_v("%d bytes written to DTLS Stream", len);  //for low level debug

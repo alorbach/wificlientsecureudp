@@ -38,6 +38,14 @@ protected:
     const char *_private_key;
     const char *_pskIdent; // identity for PSK cipher suites
     const char *_psKey; // key in hex for PSK cipher suites
+	
+	/* Timeout allowing write failures for a this period of time 
+	*	if sending high burst of UDP messages, Error -78 (0XFFFFFFB2) UNKNOWN ERROR CODE (004E) 
+	*	happens from time to time for short period of time, we won't shutdown the hole connection 
+	*	directly. 
+	*/
+	int _writeFailTimeout = 0; 
+	unsigned long _writeLastFail = 0; 
 
 public:
     WiFiClientSecureUdp *next;
@@ -66,6 +74,7 @@ public:
     void setCACert(const char *rootCA);
     void setCertificate(const char *client_ca);
     void setPrivateKey (const char *private_key);
+    void setwriteFailTimeout(int newWriteFailTimeout);
     bool loadCACert(Stream& stream, size_t size);
     bool loadCertificate(Stream& stream, size_t size);
     bool loadPrivateKey(Stream& stream, size_t size);

@@ -73,7 +73,6 @@ WiFiClientSecureUdp::~WiFiClientSecureUdp()
 
 	/* Delete Mutex for send/receive*/
 	if (sslclient->mbedtls_mutex != NULL) {
-		// xSemaphoreGive(sslclient->mbedtls_mutex); 	// Release
         vSemaphoreDelete(sslclient->mbedtls_mutex);  // Delete
     }
 	
@@ -199,9 +198,24 @@ size_t WiFiClientSecureUdp::write(const uint8_t *buf, size_t size)
     }
 	int res = send_ssl_data(sslclient, buf, size);
 	if (res < 0) {
-		log_e("send_ssl_data fail res %d ", res);
-		stop();
+		if (_writeFailTimeout > 0) {
+			unsigned long currentTime = millis();
+			if (_writeLastFail == 0) {
+				_writeLastFail = currentTime;
+			} else if ( (currentTime - _writeLastFail) > _writeFailTimeout) {
+				log_e("send_ssl_data failed after %d ms with res %d, tear down session!", _writeFailTimeout, res);
+				stop();
+			}
+		} else {
+			log_e("send_ssl_data failed with res %d, tear down session!", res);
+			stop();
+		}
 		res = 0;
+	} else {
+		if (_writeLastFail > 0) {
+			log_w("send_ssl_data recovered session after %d ms", (millis() - _writeLastFail));
+			_writeLastFail = 0;
+		}
 	}
 	return res;
 }
@@ -278,6 +292,12 @@ void WiFiClientSecureUdp::setPrivateKey (const char *private_key)
 void WiFiClientSecureUdp::setPreSharedKey(const char *pskIdent, const char *psKey) {
     _pskIdent = pskIdent;
     _psKey = psKey;
+}
+
+void WiFiClientSecureUdp::setwriteFailTimeout (int newWriteFailTimeout)
+{
+	_writeFailTimeout = newWriteFailTimeout;
+	_writeLastFail = 0; 
 }
 
 bool WiFiClientSecureUdp::verify(const char* fp, const char* domain_name)

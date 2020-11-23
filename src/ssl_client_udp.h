@@ -15,7 +15,7 @@
 
 /*
 #undef log_v(format, ...) 
-*/
+
 #undef log_d(format, ...) 
 #undef log_i(format, ...) 
 /**/
@@ -24,7 +24,7 @@
 
 /*
 #define log_v(format, ...) Serial.printf("ssl_client_udp verbose: " format "\n", ##__VA_ARGS__);
-*/
+
 #define log_d(format, ...) Serial.printf("ssl_client_udp debug: " format "\n", ##__VA_ARGS__);
 #define log_i(format, ...) Serial.printf("ssl_client_udp info: " format "\n", ##__VA_ARGS__);
 /**/
