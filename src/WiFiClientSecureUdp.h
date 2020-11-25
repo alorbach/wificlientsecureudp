@@ -45,6 +45,7 @@ protected:
 	*	directly. 
 	*/
 	int _writeFailTimeout = 0; 
+	int _writeFailDelay = 0; 
 	unsigned long _writeLastFail = 0; 
 
 public:
@@ -75,6 +76,7 @@ public:
     void setCertificate(const char *client_ca);
     void setPrivateKey (const char *private_key);
     void setwriteFailTimeout(int newWriteFailTimeout);
+    void setwriteFailDelay(int newwriteFailDelay);
     bool loadCACert(Stream& stream, size_t size);
     bool loadCertificate(Stream& stream, size_t size);
     bool loadPrivateKey(Stream& stream, size_t size);

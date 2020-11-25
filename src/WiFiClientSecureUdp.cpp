@@ -71,10 +71,11 @@ WiFiClientSecureUdp::~WiFiClientSecureUdp()
 {
     stop();
 
-	/* Delete Mutex for send/receive*/
+	/* Delete Mutex for send/receive 
 	if (sslclient->mbedtls_mutex != NULL) {
         vSemaphoreDelete(sslclient->mbedtls_mutex);  // Delete
     }
+	*/
 	
     delete sslclient;
 }
@@ -203,9 +204,12 @@ size_t WiFiClientSecureUdp::write(const uint8_t *buf, size_t size)
 			if (_writeLastFail == 0) {
 				_writeLastFail = currentTime;
 			} else if ( (currentTime - _writeLastFail) > _writeFailTimeout) {
+				handle_error_mbedtls(res);
 				log_e("send_ssl_data failed after %d ms with res %d, tear down session!", _writeFailTimeout, res);
 				stop();
 			}
+			if (_writeFailDelay > 0)
+				vTaskDelay(_writeFailDelay / portTICK_PERIOD_MS);
 		} else {
 			log_e("send_ssl_data failed with res %d, tear down session!", res);
 			stop();
@@ -298,6 +302,11 @@ void WiFiClientSecureUdp::setwriteFailTimeout (int newWriteFailTimeout)
 {
 	_writeFailTimeout = newWriteFailTimeout;
 	_writeLastFail = 0; 
+}
+
+void WiFiClientSecureUdp::setwriteFailDelay (int newwriteFailDelay)
+{
+	_writeFailDelay = newwriteFailDelay;
 }
 
 bool WiFiClientSecureUdp::verify(const char* fp, const char* domain_name)

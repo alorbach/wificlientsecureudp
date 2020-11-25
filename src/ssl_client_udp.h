@@ -46,13 +46,13 @@ mbedtls_net_context socket_ctx;
     mbedtls_x509_crt ca_cert;
     mbedtls_x509_crt client_cert;
     mbedtls_pk_context client_key;
-	/* Read , write Mutex */
+	/* Read , write Mutex
 	SemaphoreHandle_t mbedtls_mutex;
-
+	*/
     unsigned long handshake_timeout;
 } sslclientudp_context;
 
-
+int _handle_error(int err, const char * file, int line);
 void ssl_init(sslclientudp_context *ssl_client);
 int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_t port, int timeout, const char *rootCABuff, const char *cli_cert, const char *cli_key, const char *pskIdent, const char *psKey);
 void stop_ssl_socket(sslclientudp_context *ssl_client, const char *rootCABuff, const char *cli_cert, const char *cli_key);
@@ -61,5 +61,7 @@ int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_
 int get_ssl_receive(sslclientudp_context *ssl_client, uint8_t *data, int length);
 bool verify_ssl_fingerprint(sslclientudp_context *ssl_client, const char* fp, const char* domain_name);
 bool verify_ssl_dn(sslclientudp_context *ssl_client, const char* domain_name);
+
+#define handle_error_mbedtls(e) _handle_error(e, __FUNCTION__, __LINE__)
 
 #endif
