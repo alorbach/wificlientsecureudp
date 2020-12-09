@@ -254,6 +254,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     mbedtls_ssl_conf_rng(&ssl_client->ssl_conf, mbedtls_ctr_drbg_random, &ssl_client->drbg_ctx);
     mbedtls_ssl_conf_dbg(&ssl_client->ssl_conf, _handle_debug, stdout);	
 	mbedtls_ssl_conf_dtls_anti_replay(&ssl_client->ssl_conf, (char) MBEDTLS_SSL_ANTI_REPLAY_ENABLED);
+	mbedtls_ssl_conf_dtls_badmac_limit(&ssl_client->ssl_conf, 10);
 	// mbedtls_ssl_conf_renegotiation(&ssl_client->ssl_conf, MBEDTLS_SSL_RENEGOTIATION_ENABLED  );
 	mbedtls_ssl_conf_handshake_timeout( &ssl_client->ssl_conf, 1000, ssl_client->handshake_timeout );
     if ((ret = mbedtls_ssl_setup(&ssl_client->ssl_ctx, &ssl_client->ssl_conf)) != 0) {
@@ -276,7 +277,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
 		ret = mbedtls_ssl_handshake(&ssl_client->ssl_ctx); 
 		log_d("Performing the SSL/TLS handshake %d ...", millis() - handshake_start_time);
         if((millis() - handshake_start_time) > ssl_client->handshake_timeout /*ssl_client->handshake_timeout*/) {
-            log_e("SSL/TLS handshake timeout (%d/%d) ", ssl_client->handshake_timeout, ret);
+            log_e("SSL/TLS handshake timeout (%d/%#02X) ", ssl_client->handshake_timeout, ret);
 			handle_error_mbedtls(ret); 
 			return -1;
 		}
@@ -292,7 +293,7 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
     if (cli_cert != NULL && cli_key != NULL) {
         log_d("Protocol is %s Ciphersuite is %s", mbedtls_ssl_get_version(&ssl_client->ssl_ctx), mbedtls_ssl_get_ciphersuite(&ssl_client->ssl_ctx));
         if ((ret = mbedtls_ssl_get_record_expansion(&ssl_client->ssl_ctx)) >= 0) {
-            log_d("Record expansion is %d", ret);
+            log_d("Record expansion is %#02X", ret);
         } else {
             log_w("Record expansion is unknown (compression)");
         }
@@ -349,7 +350,7 @@ int data_to_read(sslclientudp_context *ssl_client)
 	if (res > 0) {
 		ret = mbedtls_ssl_read(&ssl_client->ssl_ctx, NULL, 0);
 		if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret < 0) {
-			log_e("data_to_read mbedtls_ssl_read error %d with %d bytes remaining", ret, res);  //for low level debug
+			log_e("data_to_read mbedtls_ssl_read error %#02X with %d bytes remaining", ret, res);  //for low level debug
 			return handle_error_mbedtls(ret);
 		}
 	} else {
@@ -379,7 +380,7 @@ int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_
 		
 		// Check for return code
 		if( ret < 0 ) {
-			log_i("Writing %d bytes of data to DTLS Stream FAILED with ret %d", len, ret);  //for low level debug
+			log_i("Writing %d bytes of data to DTLS Stream FAILED with ret %#02X", len, ret);  //for low level debug
 			return ret;
 		}
 

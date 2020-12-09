@@ -137,11 +137,11 @@ int WiFiClientSecureUdp::connect(const char *host, uint16_t port, const char *_C
     int ret = start_ssl_client(sslclient, host, port, _timeout, _CA_cert, _cert, _private_key, NULL, NULL);
     _lastError = ret;
     if (ret < 0) {
-        log_e("start_ssl_client: error %d", ret);
+        log_e("start_ssl_client: error %#02X", ret);
         stop();
         return 0;
     } else {
-        log_d("start_ssl_client: success %d", ret);
+        log_d("start_ssl_client: success %#02X", ret);
     }
     _connected = true;
     return 1;
@@ -159,11 +159,11 @@ int WiFiClientSecureUdp::connect(const char *host, uint16_t port, const char *ps
     int ret = start_ssl_client(sslclient, host, port, _timeout, NULL, NULL, NULL, _pskIdent, _psKey);
     _lastError = ret;
     if (ret < 0) {
-        log_e("start_ssl_client: error %d", ret);
+        log_e("start_ssl_client: error %#02X", ret);
         stop();
         return 0;
     } else {
-        log_d("start_ssl_client: success %d", ret);
+        log_d("start_ssl_client: success %#02X", ret);
 	}
     _connected = true;
     return 1;
@@ -205,13 +205,13 @@ size_t WiFiClientSecureUdp::write(const uint8_t *buf, size_t size)
 				_writeLastFail = currentTime;
 			} else if ( (currentTime - _writeLastFail) > _writeFailTimeout) {
 				handle_error_mbedtls(res);
-				log_e("send_ssl_data failed after %d ms with res %d, tear down session!", _writeFailTimeout, res);
+				log_e("send_ssl_data failed after %d ms with res %#02X, tear down session!", _writeFailTimeout, res);
 				stop();
 			}
 			if (_writeFailDelay > 0)
 				vTaskDelay(_writeFailDelay / portTICK_PERIOD_MS);
 		} else {
-			log_e("send_ssl_data failed with res %d, tear down session!", res);
+			log_e("send_ssl_data failed with res %#02X, tear down session!", res);
 			stop();
 		}
 		res = 0;
@@ -248,7 +248,7 @@ int WiFiClientSecureUdp::read(uint8_t *buf, size_t size)
     
     int res = get_ssl_receive(sslclient, buf, size);
     if (res < 0) {
-		log_e("get_ssl_receive fail res %d ", res);
+		log_e("get_ssl_receive fail res %#02X ", res);
         stop();
         return peeked?peeked:res;
     }
@@ -263,7 +263,7 @@ int WiFiClientSecureUdp::available()
     }
     int res = data_to_read(sslclient);
     if (res < 0) {
-		log_e("data_to_read fail res %d ", res);
+		log_e("data_to_read fail res %#02X ", res);
         stop();
         return peeked?peeked:res;
     }
