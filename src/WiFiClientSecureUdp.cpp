@@ -21,12 +21,12 @@
 #include "WiFiClientSecureUdp.h"
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
+#include <lwip/stats.h>
 #include <errno.h>
 
 #undef connect
 #undef write
 #undef read
-
 
 WiFiClientSecureUdp::WiFiClientSecureUdp()
 {
@@ -76,8 +76,10 @@ WiFiClientSecureUdp::~WiFiClientSecureUdp()
         vSemaphoreDelete(sslclient->mbedtls_mutex);  // Delete
     }
 	*/
-	
-    delete sslclient;
+	if (sslclient != NULL) {
+		delete sslclient;
+		sslclient = NULL;
+	}
 }
 
 WiFiClientSecureUdp &WiFiClientSecureUdp::operator=(const WiFiClientSecureUdp &other)
@@ -92,10 +94,7 @@ void WiFiClientSecureUdp::stop()
 {
 	log_d("stop called");
     stop_ssl_socket(sslclient, _CA_cert, _cert, _private_key);
-    if (sslclient->socket >= 0) {
-        close(sslclient->socket);
-        sslclient->socket = -1;
-    }
+	
 	_connected = false;
 	_peek = -1;
 }
@@ -198,6 +197,38 @@ size_t WiFiClientSecureUdp::write(const uint8_t *buf, size_t size)
         return 0;
     }
 	int res = send_ssl_data(sslclient, buf, size);
+
+	/* TCP/IP Stack is not comming fast enough */
+	if (res < 0 && errno == ENOMEM) {
+		// Display LWIP Stats on MEMORY failure
+		stats_display();
+
+		/*
+		  0,             /* ERR_OK          0      No error, everything OK. *
+		  ENOMEM,        /* ERR_MEM        -1      Out of memory error.     *
+		  ENOBUFS,       /* ERR_BUF        -2      Buffer error.            *
+		  EWOULDBLOCK,   /* ERR_TIMEOUT    -3      Timeout                  *
+		  EHOSTUNREACH,  /* ERR_RTE        -4      Routing problem.         *
+		  EINPROGRESS,   /* ERR_INPROGRESS -5      Operation in progress    *
+		  EINVAL,        /* ERR_VAL        -6      Illegal value.           *
+		  EWOULDBLOCK,   /* ERR_WOULDBLOCK -7      Operation would block.   *
+		  EADDRINUSE,    /* ERR_USE        -8      Address in use.          *
+		  EALREADY,      /* ERR_ALREADY    -9      Already connecting.      *
+		  EISCONN,       /* ERR_ISCONN     -10     Conn already established.*
+		  ENOTCONN,      /* ERR_CONN       -11     Not connected.           *
+		  -1,            /* ERR_IF         -12     Low-level netif error    *
+		  ECONNABORTED,  /* ERR_ABRT       -13     Connection aborted.      *
+		  ECONNRESET,    /* ERR_RST        -14     Connection reset.        *
+		  ENOTCONN,      /* ERR_CLSD       -15     Connection closed.       *
+		  EIO            /* ERR_ARG        -16     Illegal argument.        *
+		*/		
+
+		log_e("send_ssl_data failed with res %#02X, errno %d, retry after vTaskDelay!", res, errno);
+		/* Try again after delay */
+		vTaskDelay(50);
+		int res = send_ssl_data(sslclient, buf, size);
+	}
+	
 	if (res < 0) {
 		if (_writeFailTimeout > 0) {
 			unsigned long currentTime = millis();
@@ -205,13 +236,16 @@ size_t WiFiClientSecureUdp::write(const uint8_t *buf, size_t size)
 				_writeLastFail = currentTime;
 			} else if ( (currentTime - _writeLastFail) > _writeFailTimeout) {
 				handle_error_mbedtls(res);
-				log_e("send_ssl_data failed after %d ms with res %#02X, tear down session!", _writeFailTimeout, res);
+
+/**< Sending information through the socket failed. */
+// MBEDTLS_ERR_NET_SEND_FAILED                       -0x004E  
+				log_e("send_ssl_data failed after %d ms with res %#02X, errno %d, tear down session!", _writeFailTimeout, res, errno);
 				stop();
 			}
 			if (_writeFailDelay > 0)
 				vTaskDelay(_writeFailDelay / portTICK_PERIOD_MS);
 		} else {
-			log_e("send_ssl_data failed with res %#02X, tear down session!", res);
+			log_e("send_ssl_data failed with res %#02X, errno %d, tear down session!", res, errno);
 			stop();
 		}
 		res = 0;

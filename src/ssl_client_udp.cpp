@@ -49,6 +49,14 @@ static void _handle_debug( void *ctx, int level, const char *file, int line, con
 }
 
 /* --- BEGIN IMPORT FROM MBEDTLLS Library! */
+#  if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+// ESP32 3.x: Use public mbedTLS timing API (structure members are private)
+// Use the standard mbedTLS timing functions directly
+#    include "mbedtls/timing.h"
+#    define my_mbedtls_timing_set_delay mbedtls_timing_set_delay
+#    define my_mbedtls_timing_get_delay mbedtls_timing_get_delay
+#  else
+// ESP32 2.x: Custom timing implementation (structure members are public)
 struct _hr_time
 {
     struct timeval start;
@@ -101,6 +109,7 @@ int my_mbedtls_timing_get_delay( void *data )
 
     return( 0 );
 }
+#  endif
 /**/
 /* --- END IMPORT FROM MBEDTLLS Library! */
 
@@ -211,7 +220,14 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         }
 
         log_i("Loading private key");
+#  if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+        // ESP32 3.x: mbedtls_pk_parse_key requires random number generator
+        // Use the drbg_ctx that's already initialized in the ssl_client structure
+        ret = mbedtls_pk_parse_key(&ssl_client->client_key, (const unsigned char *)cli_key, strlen(cli_key) + 1, NULL, 0, mbedtls_ctr_drbg_random, &ssl_client->drbg_ctx);
+#  else
+        // ESP32 2.x: Old API with 5 parameters
         ret = mbedtls_pk_parse_key(&ssl_client->client_key, (const unsigned char *)cli_key, strlen(cli_key) + 1, NULL, 0);
+#  endif
 
         if (ret != 0) {
             return handle_error_mbedtls(ret);
@@ -241,8 +257,8 @@ int start_ssl_client(sslclientudp_context *ssl_client, const char *host, uint32_
         }
         lwip_setsockopt(ssl_client->socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
         lwip_setsockopt(ssl_client->socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        lwip_setsockopt(ssl_client->socket, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
-        lwip_setsockopt(ssl_client->socket, SOL_SOCKET, SO_KEEPALIVE, &enable, sizeof(enable));
+//        lwip_setsockopt(ssl_client->socket, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+//        lwip_setsockopt(ssl_client->socket, SOL_SOCKET, SO_KEEPALIVE, &enable, sizeof(enable));
     } else {
         log_e("Connect to Server failed!");
         return -1;
@@ -352,6 +368,8 @@ int data_to_read(sslclientudp_context *ssl_client)
 		if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret < 0) {
 			log_e("data_to_read mbedtls_ssl_read error %#02X with %d bytes remaining", ret, res);  //for low level debug
 			return handle_error_mbedtls(ret);
+		} else {
+			return ret;
 		}
 	} else {
 //		log_v("data_to_read mbedtls_ssl_get_bytes_avail: %i",res);    //for low level debug
@@ -373,7 +391,6 @@ int send_ssl_data(sslclientudp_context *ssl_client, const uint8_t *data, uint16_
 		do {
 			ret = mbedtls_ssl_write( &ssl_client->ssl_ctx, data, len );
 		} while( ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE );
-
 		/* Release MUTEX 
 		xSemaphoreGive( ssl_client->mbedtls_mutex );
 		*/

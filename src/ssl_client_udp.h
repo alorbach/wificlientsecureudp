@@ -5,7 +5,11 @@
 #ifndef ARD_SSL_UDP_H
 #define ARD_SSL_UDP_H
 #include "mbedtls/platform.h"
-#include "mbedtls/net.h"
+#  if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+#    include "mbedtls/net_sockets.h"  // ESP32 3.x: net.h renamed to net_sockets.h
+#  else
+#    include "mbedtls/net.h"  // ESP32 2.x: old header name
+#  endif
 #include "mbedtls/debug.h"
 #include "mbedtls/ssl.h"
 #include "mbedtls/entropy.h"
@@ -14,13 +18,13 @@
 #include "mbedtls/timing.h"
 
 /*
-#undef log_v(format, ...) 
+#undef log_v
 
-#undef log_d(format, ...) 
-#undef log_i(format, ...) 
+#undef log_d
+#undef log_i
 /**/
-#undef log_w(format, ...) 
-#undef log_e(format, ...) 
+#undef log_w
+#undef log_e
 
 /*
 #define log_v(format, ...) Serial.printf("ssl_client_udp verbose: " format "\n", ##__VA_ARGS__);
