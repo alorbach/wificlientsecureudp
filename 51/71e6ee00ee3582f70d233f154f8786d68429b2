@@ -1,0 +1,28 @@
+README.md
+  s_b208e8e635d711::t_68b1c4d47f0bab 3,30,32-41,48-56,85
+  s_b208e8e635d711::t_69d95d25e3af7e 86
+library.properties
+  s_b208e8e635d711::t_68b1c4d47f0bab 4,10
+examples/DtlsPskClient/DtlsPskClient.ino
+  s_b208e8e635d711::t_a5cc11d6e2d1f1 1-75
+keywords.txt
+  s_b208e8e635d711::t_68b1c4d47f0bab 1-44
+library.json
+  s_b208e8e635d711::t_68b1c4d47f0bab 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5171e6ee00ee3582f70d233f154f8786d68429b2",
+  "prompts": {},
+  "sessions": {
+    "s_b208e8e635d711": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b5b53efd-c831-4059-8de9-4b8b60ac871a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andre Lorbach <alorbach@adiscon.com>"
+    }
+  }
+}
