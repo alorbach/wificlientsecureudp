@@ -1,0 +1,27 @@
+{
+  "name": "WiFiClientSecureUdp",
+  "version": "1.0.0",
+  "description": "Secure UDP client library for ESP32 with DTLS support using mbedTLS. Supports root CA, client certificate and pre-shared key (PSK) authentication.",
+  "keywords": "dtls, udp, tls, mbedtls, psk, secure, wifi, esp32",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alorbach/wificlientsecureudp.git"
+  },
+  "authors": [
+    {
+      "name": "Andre Lorbach",
+      "url": "https://github.com/alorbach",
+      "maintainer": true
+    }
+  ],
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/alorbach/wificlientsecureudp",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "headers": "WiFiClientSecureUdp.h",
+  "export": {
+    "exclude": [
+      ".github"
+    ]
+  }
+}

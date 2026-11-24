@@ -1,6 +1,6 @@
 # WiFiClientSecureUdp
 
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/alorbach/wificlientsecureudp)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/alorbach/wificlientsecureudp)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE.txt)
 [![Platform](https://img.shields.io/badge/platform-ESP32-orange.svg)](https://www.espressif.com/en/products/socs/esp32)
 
@@ -27,20 +27,33 @@ A secure UDP client library for ESP32 that implements DTLS (Datagram Transport L
 
 ## Installation
 
-### Arduino IDE
+### Arduino IDE (Library Manager)
 
-1. Download this repository as a ZIP file
-2. In Arduino IDE, go to `Sketch` → `Include Library` → `Add .ZIP Library...`
-3. Select the downloaded ZIP file
-4. The library will be installed in your Arduino libraries folder
+1. In Arduino IDE, open `Sketch` → `Include Library` → `Manage Libraries...`
+2. Search for `WiFiClientSecureUdp` and click `Install`
+
+Alternatively download a release ZIP and use `Sketch` → `Include Library` → `Add .ZIP Library...`.
+
+### Arduino CLI
+
+```
+arduino-cli lib install WiFiClientSecureUdp
+```
 
 ### PlatformIO
 
 Add to your `platformio.ini`:
 
 ```ini
-lib_deps = 
-    https://github.com/alorbach/wificlientsecureudp.git
+lib_deps =
+    alorbach/WiFiClientSecureUdp@^1.0.0
+```
+
+or pin the Git tag directly:
+
+```ini
+lib_deps =
+    https://github.com/alorbach/wificlientsecureudp.git#1.0.0
 ```
 
 ### ESP32 SDK Configuration
@@ -68,6 +81,8 @@ After compilation, replace these files in your ESP32 Arduino framework:
 - `packages/esp32/hardware/esp32/[version]/tools/sdk/include/mbedtls/mbedtls/*`
 
 ## Quick Start
+
+A complete sketch is in [examples/DtlsPskClient](examples/DtlsPskClient/DtlsPskClient.ino) (`File` → `Examples` → `WiFiClientSecureUdp`).
 
 ### Basic Example
 

@@ -1,0 +1,44 @@
+#######################################
+# WiFiClientSecureUdp Library
+# Syntax Coloring Map for Arduino IDE
+#######################################
+
+#######################################
+# Datatypes/Classes (KEYWORD1)
+#######################################
+
+WiFiClientSecureUdp	KEYWORD1
+sslclientudp_context	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+# Connection methods
+connect	KEYWORD2
+stop	KEYWORD2
+connected	KEYWORD2
+
+# Certificate and authentication
+setCACert	KEYWORD2
+setCertificate	KEYWORD2
+setPrivateKey	KEYWORD2
+setPreSharedKey	KEYWORD2
+loadCACert	KEYWORD2
+loadCertificate	KEYWORD2
+loadPrivateKey	KEYWORD2
+verify	KEYWORD2
+
+# Data I/O
+write	KEYWORD2
+read	KEYWORD2
+available	KEYWORD2
+peek	KEYWORD2
+flush	KEYWORD2
+
+# Configuration and error handling
+setHandshakeTimeout	KEYWORD2
+setwriteFailTimeout	KEYWORD2
+setwriteFailDelay	KEYWORD2
+lastError	KEYWORD2
+setTimeout	KEYWORD2
